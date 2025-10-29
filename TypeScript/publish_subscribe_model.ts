@@ -21,18 +21,30 @@
 // 实现 once on emit off 订阅中心Map<事件的名称，[Funnction]订阅者集合>
 interface I {
   events: Map<string, Function[]>;
-  once: () => void; //触发一次订阅器
+  once: (event: string, fn: Function) => void; //触发一次订阅器
   on: (event: string, fn: Function) => void; //监听
   emit: (event: string, ...args: any[]) => void; //派发
-  off: () => void; //删除监听器
+  off: (event: string, fn: Function) => void; //删除监听器
 }
 class Emitter implements I {
   events: Map<string, Function[]>;
   constructor() {
     this.events = new Map();
   }
-  once() {}
-  off() {}
+  once(event: string, fn: Function) {
+    // 1. 创建一个自定义函数 通过on触发，触发完之后立马通过off回收掉
+    const cb = (...args: any[]) => {
+      fn(...args);
+      this.off(event, cb);
+    };
+    this.on(event, cb);
+  }
+  off(event: string, fn: Function) {
+    const callbackList = this.events.get(event);
+    if (callbackList) {
+      callbackList.splice(callbackList.indexOf(fn), 1);
+    }
+  }
   on(event: string, fn: Function) {
     // 证明存过了
     if (this.events.has(event)) {
@@ -43,17 +55,24 @@ class Emitter implements I {
   }
   emit(event: string, ...args: any[]) {
     const callbackList = this.events.get(event);
-    console.log(callbackList);
+    // console.log(callbackList);
+    if (callbackList) {
+      callbackList.forEach((fn) => fn(...args));
+    }
   }
 }
 
 const emitter = new Emitter();
-emitter.on("message", (b: boolean, n: number) => {
-  console.log("触发了1", b, n);
-});
-emitter.on("message", (b: boolean, n: number) => {
-  console.log("触发了2", b, n);
-});
-console.log(emitter);
+const fn = (b: boolean, n: number) => {
+  console.log(1, b, n);
+};
+emitter.on("message", fn);
+emitter.off("message", fn);
+emitter.once("message", fn);
 
+// console.log(emitter);
+
+emitter.emit("message", false, 1);
+emitter.emit("message", false, 1);
+emitter.emit("message", false, 1);
 emitter.emit("message", false, 1);
